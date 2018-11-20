@@ -1,26 +1,20 @@
-import { printSchema } from 'graphql'
+import { FieldDefinitionNode, InputValueDefinitionNode, TypeNode } from 'graphql'
 import {
   SchemaDirectiveVisitor,
   makeExecutableSchema,
-  transformSchema,
   concatenateTypeDefs,
-  ITypeDefinitions,
-  Transform,
 } from 'graphql-tools'
 import {
   GraphQLSchema,
-  GraphQLObjectType,
   GraphQLField,
   GraphQLDirective,
   DirectiveLocation,
-  GraphQLString,
-  GraphQLBoolean,
   DocumentNode,
-  TypeNode,
-  NameNode,
-  extendSchema,
+  ObjectTypeDefinitionNode,
+  print
 } from 'graphql'
 import gql from 'graphql-tag'
+import { write } from 'fs-extra';
 
 export interface IGetSchemaDirectivesInput {
   typeDefs: string | DocumentNode
@@ -32,16 +26,6 @@ export interface IFoundObjectTypes {
 }
 export interface IFoundConnections {
   [typeName: string]: string
-}
-
-function getBaseType(type: string): string {
-  return type
-    .replace(/:/g, '')
-    .replace(/\[/g, '')
-    .replace(/\]/g, '')
-    .replace(/!/g, '')
-    .replace(/@/g, '')
-    .trim()
 }
 
 // The goal of this package is to create the Connection and Edge types,
@@ -139,29 +123,130 @@ export function applyConnectionTransform({
     : [typeDefs]
   const a = newTypeDefs.concat(originalTypeDefsAsArray)
   let mergedTypeDefs = concatenateTypeDefs(a)
+  const document = gql(mergedTypeDefs)
+  const objects = getObjectTypeDefinitions(document)
+  objects.forEach(o => getFieldsWithConnectionDirective(o, directiveName).forEach(f => {
+    const openField = f as any
+    // add relay connection args
+    const args = (openField.arguments || [])
+    makeConnectionArgs().forEach(a => args.push(a))
+    
+    // Change type to Connection
+    openField.type = makeConnectionType(f.type)
+    
+    // remove @connection directive
+    const directiveIndex = openField.directives.findIndex((d: any) => d.name.value === directiveName)
+    openField.directives.splice(directiveIndex, 1)
+  }))
+  
+  // mergedTypeDefs = mergedTypeDefs.replace(directiveRegex, '')
+  const formattedTypeDefs = print(document)
+  
+  return formattedTypeDefs
+}
 
-  // point to new Connection type
-  const regex = new RegExp(`\\S+:.*@${directiveName}`, 'gm')
-  const fieldsWithConnectionDirective = mergedTypeDefs.match(regex) || []
-  for (const fieldMatch of fieldsWithConnectionDirective) {
-    // there might be other directives. get only the part to change
-    const parts = fieldMatch.match(/[^:@]+/g) || []
-    const fieldName = parts[0]
-    const typePart = parts[1].trim()
-    const baseType = getBaseType(typePart)
-    const newPart = `${fieldName}: ${baseType}Connection`
-    const partToChange = `${fieldName}: ${typePart}`
-    mergedTypeDefs = mergedTypeDefs.replace(partToChange, newPart)
+function getObjectTypeDefinitions(document: DocumentNode): ObjectTypeDefinitionNode[] {
+  return document.definitions.filter(d => d.kind === "ObjectTypeDefinition") as ObjectTypeDefinitionNode[]
+}
+
+function getFieldsWithConnectionDirective(object: ObjectTypeDefinitionNode, directiveName: string): FieldDefinitionNode[] {
+  if (!object.fields) {
+    return []
   }
-  // remove @connection
-  mergedTypeDefs = mergedTypeDefs.replace(
-    new RegExp(`directive\\s+@${directiveName}\\s+on\\s+FIELD_DEFINITION`, 'g'),
-    ''
-  )
-  const directiveRegex = new RegExp(`\\s@${directiveName}`, 'gm')
-  mergedTypeDefs = mergedTypeDefs.replace(directiveRegex, '')
+  return object.fields.filter(f => {
+    if (!f.directives) {
+      return false
+    }
+    for (const d of f.directives) {
+      if (d.name.value === directiveName) {
+        return true
+      }
+    }
+    return false
+  })
+}
 
-  return mergedTypeDefs
+function getBaseType(type: string): string {
+  return type
+    .replace(/:/g, '')
+    .replace(/\[/g, '')
+    .replace(/\]/g, '')
+    .replace(/!/g, '')
+    .replace(/@/g, '')
+    .trim()
+}
+
+function makeConnectionType(type: TypeNode): TypeNode {
+  const formattedType = print(type)
+  const baseName = getBaseType(formattedType)
+  return {
+    kind: "NamedType",
+    name: {
+      kind: "Name",
+      value: `${baseName}Connection`
+    }
+  }
+}
+
+function makeConnectionArgs(): InputValueDefinitionNode[] {
+  return [
+    {
+      kind: "InputValueDefinition",
+      name: {
+        kind: "Name",
+        value: "after"
+      },
+      type: {
+        kind: "NamedType",
+        name: {
+          kind: "Name",
+          value: "String"
+        }
+      },
+    },
+    {
+      kind: "InputValueDefinition",
+      name: {
+        kind: "Name",
+        value: "first"
+      },
+      type: {
+        kind: "NamedType",
+        name: {
+          kind: "Name",
+          value: "Int"
+        }
+      },
+    },
+    {
+      kind: "InputValueDefinition",
+      name: {
+        kind: "Name",
+        value: "before"
+      },
+      type: {
+        kind: "NamedType",
+        name: {
+          kind: "Name",
+          value: "String"
+        }
+      },
+    },
+    {
+      kind: "InputValueDefinition",
+      name: {
+        kind: "Name",
+        value: "last"
+      },
+      type: {
+        kind: "NamedType",
+        name: {
+          kind: "Name",
+          value: "Int"
+        }
+      },
+    }
+  ]
 }
 
 // todo handle hide by using Schema Transforms to filter types marked with hide
