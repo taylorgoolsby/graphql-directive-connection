@@ -1,0 +1,64 @@
+{
+  "name": "graphql-directive-connection",
+  "version": "1.0.0",
+  "description": "Generate relay connections by marking fields with a @connection directive.",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "format": "./node_modules/.bin/prettier --write 'src/**/*.{ts,tsx,js,jsx}'",
+    "lint": "./node_modules/.bin/tslint --fix 'src/**/*.{ts,tsx}'",
+    "test": "jest",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run test",
+    "version": "git add -A src",
+    "postversion": "git push && git push --tags"
+  },
+  "repository": "git@github.com:taylorgoolsby/graphql-directive-connection.git",
+  "author": "Taylor Goolsby <taylorgoolsby@users.noreply.github.com>",
+  "license": "GPL-3.0",
+  "engines": {
+    "node": ">=8.11.4"
+  },
+  "peerDependencies": {
+    "graphql": "^0.13.0 || ^14.0.0",
+    "graphql-tools": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^5.0.4",
+    "@types/graphql": "^14.0.2",
+    "@types/jest": "^23.3.3",
+    "@types/lodash.get": "^4.4.4",
+    "@types/node": "^10.12.1",
+    "graphql": "^14.0.2",
+    "graphql-tools": "^4.0.0",
+    "husky": "^1.1.1",
+    "jest": "^23.6.0",
+    "lint-staged": "^7.3.0",
+    "prettier": "^1.14.3",
+    "ts-jest": "^23.10.4",
+    "tslint": "^5.11.0",
+    "tslint-config-prettier": "^1.15.0",
+    "typescript": "^3.1.1"
+  },
+  "keywords": [
+    "graphql",
+    "sdl",
+    "graphql-schema-language",
+    "graphql-schema",
+    "schema",
+    "directive",
+    "relay",
+    "connection"
+  ],
+  "dependencies": {
+    "fs-extra": "^7.0.0",
+    "graphql-tag": "^2.10.0",
+    "lodash.get": "^4.4.2"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  }
+}
