@@ -1,6 +1,6 @@
 {
   "name": "graphql-directive-connection",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Generate relay connections by marking fields with a @connection directive.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
