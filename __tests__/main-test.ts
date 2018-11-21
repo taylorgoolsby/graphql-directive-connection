@@ -1,10 +1,10 @@
 import { validateSchema } from 'graphql'
 import { makeExecutableSchema } from 'graphql-tools'
-import { applyConnectionTransform, directiveDeclaration } from '../src'
+import { applyConnectionTransform, connectionDirectiveDeclaration } from '../src'
 
 test('main test', () => {
   const typeDefs = `
-    ${directiveDeclaration}
+    ${connectionDirectiveDeclaration}
     directive @sql on FIELD_DEFINITION
 
     type User {

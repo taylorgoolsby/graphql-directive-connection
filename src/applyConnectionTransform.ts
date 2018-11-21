@@ -250,5 +250,9 @@ function makeConnectionArgs(): InputValueDefinitionNode[] {
 }
 
 // todo handle hide by using Schema Transforms to filter types marked with hide
-
-export const directiveDeclaration = `directive @connection on FIELD_DEFINITION`
+export function customDirectiveDeclaration(
+  customDirectiveName: string
+): string {
+  return `directive @${customDirectiveName} on FIELD_DEFINITION`
+}
+export const connectionDirectiveDeclaration = customDirectiveDeclaration('connection')
