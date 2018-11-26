@@ -48,7 +48,7 @@ type PostConnection {
   pageInfo: PageInfo!
 }
 
-directive on FIELD_DEFINITION
+directive @connection on FIELD_DEFINITION
 directive @sql on FIELD_DEFINITION
 
 type User {
