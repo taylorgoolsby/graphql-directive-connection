@@ -18,7 +18,6 @@ import {
   print,
 } from 'graphql'
 import gql from 'graphql-tag'
-import { write } from 'fs-extra'
 
 export interface IGetSchemaDirectivesInput {
   typeDefs: string | DocumentNode
