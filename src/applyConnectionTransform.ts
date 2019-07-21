@@ -1,4 +1,8 @@
-import { FieldDefinitionNode, InputValueDefinitionNode, TypeNode } from 'graphql'
+import {
+  FieldDefinitionNode,
+  InputValueDefinitionNode,
+  TypeNode,
+} from 'graphql'
 import {
   SchemaDirectiveVisitor,
   makeExecutableSchema,
@@ -11,10 +15,10 @@ import {
   DirectiveLocation,
   DocumentNode,
   ObjectTypeDefinitionNode,
-  print
+  print,
 } from 'graphql'
 import gql from 'graphql-tag'
-import { write } from 'fs-extra';
+import { write } from 'fs-extra'
 
 export interface IGetSchemaDirectivesInput {
   typeDefs: string | DocumentNode
@@ -112,6 +116,7 @@ export function applyConnectionTransform({
     newTypeDefs.push(
       gql`
         type ${typeName}Connection {
+          totalCount: Integer!
           edges: [${typeName}Edge]
           pageInfo: PageInfo!
         }
@@ -123,34 +128,45 @@ export function applyConnectionTransform({
     ? typeDefs
     : [typeDefs]
   const a = newTypeDefs.concat(originalTypeDefsAsArray)
-  let mergedTypeDefs = concatenateTypeDefs(a)
+  const mergedTypeDefs = concatenateTypeDefs(a)
   const document = gql(mergedTypeDefs)
   const objects = getObjectTypeDefinitions(document)
-  objects.forEach(o => getFieldsWithConnectionDirective(o, directiveName).forEach(f => {
-    const openField = f as any
-    // add relay connection args
-    const args = (openField.arguments || [])
-    makeConnectionArgs().forEach(a => args.push(a))
-    
-    // Change type to Connection
-    openField.type = makeConnectionType(f.type)
-    
-    // remove @connection directive
-    const directiveIndex = openField.directives.findIndex((d: any) => d.name.value === directiveName)
-    openField.directives.splice(directiveIndex, 1)
-  }))
-  
+  objects.forEach(o =>
+    getFieldsWithConnectionDirective(o, directiveName).forEach(f => {
+      const openField = f as any
+      // add relay connection args
+      const args = openField.arguments || []
+      makeConnectionArgs().forEach(arg => args.push(arg))
+
+      // Change type to Connection
+      openField.type = makeConnectionType(f.type)
+
+      // remove @connection directive
+      const directiveIndex = openField.directives.findIndex(
+        (d: any) => d.name.value === directiveName
+      )
+      openField.directives.splice(directiveIndex, 1)
+    })
+  )
+
   // mergedTypeDefs = mergedTypeDefs.replace(directiveRegex, '')
   const formattedTypeDefs = print(document)
-  
+
   return formattedTypeDefs
 }
 
-function getObjectTypeDefinitions(document: DocumentNode): ObjectTypeDefinitionNode[] {
-  return document.definitions.filter(d => d.kind === "ObjectTypeDefinition") as ObjectTypeDefinitionNode[]
+function getObjectTypeDefinitions(
+  document: DocumentNode
+): ObjectTypeDefinitionNode[] {
+  return document.definitions.filter(
+    d => d.kind === 'ObjectTypeDefinition'
+  ) as ObjectTypeDefinitionNode[]
 }
 
-function getFieldsWithConnectionDirective(object: ObjectTypeDefinitionNode, directiveName: string): FieldDefinitionNode[] {
+function getFieldsWithConnectionDirective(
+  object: ObjectTypeDefinitionNode,
+  directiveName: string
+): FieldDefinitionNode[] {
   if (!object.fields) {
     return []
   }
@@ -181,72 +197,72 @@ function makeConnectionType(type: TypeNode): TypeNode {
   const formattedType = print(type)
   const baseName = getBaseType(formattedType)
   return {
-    kind: "NamedType",
+    kind: 'NamedType',
     name: {
-      kind: "Name",
-      value: `${baseName}Connection`
-    }
+      kind: 'Name',
+      value: `${baseName}Connection`,
+    },
   }
 }
 
 function makeConnectionArgs(): InputValueDefinitionNode[] {
   return [
     {
-      kind: "InputValueDefinition",
+      kind: 'InputValueDefinition',
       name: {
-        kind: "Name",
-        value: "after"
+        kind: 'Name',
+        value: 'after',
       },
       type: {
-        kind: "NamedType",
+        kind: 'NamedType',
         name: {
-          kind: "Name",
-          value: "String"
-        }
+          kind: 'Name',
+          value: 'String',
+        },
       },
     },
     {
-      kind: "InputValueDefinition",
+      kind: 'InputValueDefinition',
       name: {
-        kind: "Name",
-        value: "first"
+        kind: 'Name',
+        value: 'first',
       },
       type: {
-        kind: "NamedType",
+        kind: 'NamedType',
         name: {
-          kind: "Name",
-          value: "Int"
-        }
+          kind: 'Name',
+          value: 'Int',
+        },
       },
     },
     {
-      kind: "InputValueDefinition",
+      kind: 'InputValueDefinition',
       name: {
-        kind: "Name",
-        value: "before"
+        kind: 'Name',
+        value: 'before',
       },
       type: {
-        kind: "NamedType",
+        kind: 'NamedType',
         name: {
-          kind: "Name",
-          value: "String"
-        }
+          kind: 'Name',
+          value: 'String',
+        },
       },
     },
     {
-      kind: "InputValueDefinition",
+      kind: 'InputValueDefinition',
       name: {
-        kind: "Name",
-        value: "last"
+        kind: 'Name',
+        value: 'last',
       },
       type: {
-        kind: "NamedType",
+        kind: 'NamedType',
         name: {
-          kind: "Name",
-          value: "Int"
-        }
+          kind: 'Name',
+          value: 'Int',
+        },
       },
-    }
+    },
   ]
 }
 
@@ -256,4 +272,6 @@ export function customDirectiveDeclaration(
 ): string {
   return `directive @${customDirectiveName} on FIELD_DEFINITION`
 }
-export const connectionDirectiveDeclaration = customDirectiveDeclaration('connection')
+export const connectionDirectiveDeclaration = customDirectiveDeclaration(
+  'connection'
+)
