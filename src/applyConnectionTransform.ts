@@ -69,6 +69,7 @@ export function applyConnectionTransform({
     schemaDirectives: {
       [directiveName]: ConnectionDirective,
     },
+    resolverValidationOptions: { requireResolversForResolveType: false },
   })
   // console.log('foundObjectTypes', foundObjectTypes)
   // console.log('foundConnections', foundConnections)
