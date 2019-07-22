@@ -115,7 +115,7 @@ export function applyConnectionTransform({
     newTypeDefs.push(
       gql`
         type ${typeName}Connection {
-          totalCount: Integer!
+          totalCount: Int!
           edges: [${typeName}Edge]
           pageInfo: PageInfo!
         }
