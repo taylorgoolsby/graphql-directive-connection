@@ -2,6 +2,8 @@ import {
   FieldDefinitionNode,
   InputValueDefinitionNode,
   TypeNode,
+  DirectiveNode,
+  ArgumentNode,
 } from 'graphql'
 import {
   SchemaDirectiveVisitor,
@@ -22,6 +24,7 @@ import gql from 'graphql-tag'
 export interface IGetSchemaDirectivesInput {
   typeDefs: string | DocumentNode
   overrideDirectiveName?: string
+  useCacheControl?: boolean
 }
 
 export interface IFoundObjectTypes {
@@ -29,6 +32,20 @@ export interface IFoundObjectTypes {
 }
 export interface IFoundConnections {
   [typeName: string]: string
+}
+
+enum Scope {
+  PUBLIC = 'PUBLIC',
+  PRIVATE = 'PRIVATE',
+}
+
+export interface ICacheValue {
+  maxAge: number | undefined
+  scope: Scope | undefined
+}
+
+export interface ICacheControlDirectives {
+  [typeName: string]: ICacheValue
 }
 
 // The goal of this package is to create the Connection and Edge types,
@@ -41,11 +58,14 @@ export interface IFoundConnections {
 export function applyConnectionTransform({
   typeDefs,
   overrideDirectiveName,
+  useCacheControl = false,
 }: IGetSchemaDirectivesInput): string {
   const directiveName = overrideDirectiveName || 'connection'
 
   const foundObjectTypes: IFoundObjectTypes = {}
   const foundConnections: IFoundConnections = {}
+  const foundCacheControl: ICacheControlDirectives = {}
+
   class ConnectionDirective extends SchemaDirectiveVisitor {
     public static getDirectiveDeclaration(
       name: string,
@@ -60,9 +80,18 @@ export function applyConnectionTransform({
     public visitFieldDefinition(field: GraphQLField<any, any>, details: any) {
       const objectTypeName = details.objectType.name
       foundObjectTypes[objectTypeName] = objectTypeName
-
       const fieldTypeName = getBaseType(field.type.toString())
       foundConnections[fieldTypeName] = fieldTypeName
+
+      // CacheControl
+      // By default, cacheControl directives are lost when creating connections.
+      // In case `useCacheControl` is enabled, it will search for cache directives,
+      // and apply them to new type defs.
+      if (useCacheControl)
+        foundCacheControl[fieldTypeName] = extractCacheControlDirectives(
+          foundCacheControl[fieldTypeName],
+          field.astNode?.directives
+        )
     }
   }
 
@@ -76,6 +105,7 @@ export function applyConnectionTransform({
   })
   // console.log('foundObjectTypes', foundObjectTypes)
   // console.log('foundConnections', foundConnections)
+  // console.log('cacheControlDirectives', foundCacheControl)
 
   // create the typeDefs for the Connection, Edge, and PageInfo types
   const newTypeDefs = []
@@ -104,9 +134,30 @@ export function applyConnectionTransform({
     if (!!foundObjectTypes[edgeName]) {
       throw new Error(`${edgeName} already exists.`)
     }
+
+    // This applies the cacheControl to Edge type and edges, pageInfo fields
+    // The cacheControl is not applied to a Connection and Node types
+    // to comply with GraphQL List cacheControl behavior which has disabled cache by default
+    let cacheControl = ''
+    if (useCacheControl) {
+      const currentCacheValue: ICacheValue = foundCacheControl[typeName]
+      const currentMaxAge: string | undefined = Number(
+        currentCacheValue?.maxAge
+      )
+        ? `maxAge: ${currentCacheValue.maxAge}`
+        : undefined
+      const currentScope: string | undefined = currentCacheValue?.scope
+        ? `scope: ${currentCacheValue.scope}`
+        : undefined
+      cacheControl =
+        currentMaxAge || currentScope
+          ? `@cacheControl(${currentMaxAge || ''} ${currentScope || ''})`
+          : ''
+    }
+
     newTypeDefs.push(
       gql`
-        type ${typeName}Edge {
+        type ${typeName}Edge ${cacheControl} {
           cursor: String!
           node: ${typeName}
         }
@@ -116,8 +167,8 @@ export function applyConnectionTransform({
       gql`
         type ${typeName}Connection {
           totalCount: Int!
-          edges: [${typeName}Edge]
-          pageInfo: PageInfo!
+          edges: [${typeName}Edge] ${cacheControl}
+          pageInfo: PageInfo! ${cacheControl}
         }
       `
     )
@@ -152,6 +203,47 @@ export function applyConnectionTransform({
   const formattedTypeDefs = print(document)
 
   return formattedTypeDefs
+}
+
+function findDirectiveField(directives: readonly any[], field: string): any {
+  return directives.find((d: any) => d.name.value === field)
+}
+
+// This code will search for the biggest `maxAge` and less strict `scope` fields.
+// Using the biggest maxAge ensures that the cache TTL for the Connection type
+// among different fields would never be unpredictably lowered.
+function extractCacheControlDirectives(
+  storedCacheValue: ICacheValue,
+  directives: readonly DirectiveNode[] = []
+): ICacheValue {
+  const directive: DirectiveNode | undefined = findDirectiveField(
+    directives,
+    'cacheControl'
+  )
+  const args: readonly ArgumentNode[] = directive?.arguments || []
+  const directiveCacheValue: ICacheValue = {
+    maxAge: findDirectiveField(args, 'maxAge')?.value.value,
+    scope: findDirectiveField(args, 'scope')?.value.value,
+  }
+  let currentCacheValue = storedCacheValue
+  if (
+    storedCacheValue?.maxAge === undefined ||
+    Number(directiveCacheValue?.maxAge) > Number(storedCacheValue?.maxAge)
+  )
+    currentCacheValue = {
+      ...currentCacheValue,
+      maxAge: directiveCacheValue?.maxAge,
+    }
+  if (
+    (!storedCacheValue?.scope && directiveCacheValue?.scope) ||
+    (storedCacheValue?.scope === Scope.PUBLIC &&
+      directiveCacheValue?.scope === Scope.PRIVATE)
+  )
+    currentCacheValue = {
+      ...currentCacheValue,
+      scope: directiveCacheValue.scope,
+    }
+  return currentCacheValue
 }
 
 function getObjectTypeDefinitions(
