@@ -34,14 +34,8 @@ export interface IFoundConnections {
   [typeName: string]: string
 }
 
-enum Scope {
-  PUBLIC = 'PUBLIC',
-  PRIVATE = 'PRIVATE',
-}
-
 export interface ICacheValue {
   maxAge: number | undefined
-  scope: Scope | undefined
 }
 
 export interface ICacheControlDirectives {
@@ -146,13 +140,9 @@ export function applyConnectionTransform({
       )
         ? `maxAge: ${currentCacheValue.maxAge}`
         : undefined
-      const currentScope: string | undefined = currentCacheValue?.scope
-        ? `scope: ${currentCacheValue.scope}`
-        : undefined
-      cacheControl =
-        currentMaxAge || currentScope
-          ? `@cacheControl(${currentMaxAge || ''} ${currentScope || ''})`
-          : ''
+      cacheControl = currentMaxAge
+        ? `@cacheControl(${currentMaxAge || ''})`
+        : ''
     }
 
     newTypeDefs.push(
@@ -209,9 +199,10 @@ function findDirectiveField(directives: readonly any[], field: string): any {
   return directives.find((d: any) => d.name.value === field)
 }
 
-// This code will search for the biggest `maxAge` and less strict `scope` fields.
+// This code will search for the large `maxAge`.
 // Using the biggest maxAge ensures that the cache TTL for the Connection type
 // among different fields would never be unpredictably lowered.
+// The `scope` is ignored since a missing scope does not affect GraphQL cache policy.
 function extractCacheControlDirectives(
   storedCacheValue: ICacheValue,
   directives: readonly DirectiveNode[] = []
@@ -223,7 +214,6 @@ function extractCacheControlDirectives(
   const args: readonly ArgumentNode[] = directive?.arguments || []
   const directiveCacheValue: ICacheValue = {
     maxAge: findDirectiveField(args, 'maxAge')?.value.value,
-    scope: findDirectiveField(args, 'scope')?.value.value,
   }
   let currentCacheValue = storedCacheValue
   if (
@@ -233,15 +223,6 @@ function extractCacheControlDirectives(
     currentCacheValue = {
       ...currentCacheValue,
       maxAge: directiveCacheValue?.maxAge,
-    }
-  if (
-    (!storedCacheValue?.scope && directiveCacheValue?.scope) ||
-    (storedCacheValue?.scope === Scope.PUBLIC &&
-      directiveCacheValue?.scope === Scope.PRIVATE)
-  )
-    currentCacheValue = {
-      ...currentCacheValue,
-      scope: directiveCacheValue.scope,
     }
   return currentCacheValue
 }
