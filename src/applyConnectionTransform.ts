@@ -35,7 +35,7 @@ export interface IFoundConnections {
 }
 
 export interface ICacheValue {
-  maxAge: number | undefined
+  maxAge?: number
 }
 
 export interface ICacheControlDirectives {
@@ -82,7 +82,7 @@ export function applyConnectionTransform({
       // In case `useCacheControl` is enabled, it will search for cache directives,
       // and apply them to new type defs.
       if (useCacheControl)
-        foundCacheControl[fieldTypeName] = extractCacheControlDirectives(
+        foundCacheControl[fieldTypeName] = getCacheControlDirectives(
           foundCacheControl[fieldTypeName],
           field.astNode?.directives
         )
@@ -203,7 +203,7 @@ function findDirectiveField(directives: readonly any[], field: string): any {
 // Using the biggest maxAge ensures that the cache TTL for the Connection type
 // among different fields would never be unpredictably lowered.
 // The `scope` is ignored since a missing scope does not affect GraphQL cache policy.
-function extractCacheControlDirectives(
+function getCacheControlDirectives(
   storedCacheValue: ICacheValue,
   directives: readonly DirectiveNode[] = []
 ): ICacheValue {
@@ -215,16 +215,14 @@ function extractCacheControlDirectives(
   const directiveCacheValue: ICacheValue = {
     maxAge: findDirectiveField(args, 'maxAge')?.value.value,
   }
-  let currentCacheValue = storedCacheValue
-  if (
-    storedCacheValue?.maxAge === undefined ||
+
+  return storedCacheValue?.maxAge === undefined ||
     Number(directiveCacheValue?.maxAge) > Number(storedCacheValue?.maxAge)
-  )
-    currentCacheValue = {
-      ...currentCacheValue,
-      maxAge: directiveCacheValue?.maxAge,
-    }
-  return currentCacheValue
+    ? {
+        ...storedCacheValue,
+        maxAge: directiveCacheValue?.maxAge,
+      }
+    : storedCacheValue
 }
 
 function getObjectTypeDefinitions(
