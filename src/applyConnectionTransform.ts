@@ -20,7 +20,7 @@ import {
 import gql from 'graphql-tag'
 
 export interface IGetSchemaDirectivesInput {
-  typeDefs: string | DocumentNode
+  typeDefs: string | DocumentNode | DocumentNode[]
   overrideDirectiveName?: string
 }
 
