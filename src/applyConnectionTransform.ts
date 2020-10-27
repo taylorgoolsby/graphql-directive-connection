@@ -17,6 +17,7 @@ import {
   DirectiveLocation,
   DocumentNode,
   ObjectTypeDefinitionNode,
+  InterfaceTypeDefinitionNode,
   print,
 } from 'graphql'
 import gql from 'graphql-tag'
@@ -170,7 +171,7 @@ export function applyConnectionTransform({
   const a = newTypeDefs.concat(originalTypeDefsAsArray)
   const mergedTypeDefs = concatenateTypeDefs(a)
   const document = gql(mergedTypeDefs)
-  const objects = getObjectTypeDefinitions(document)
+  const objects = getValidTypesDefinitions(document)
   objects.forEach(o =>
     getFieldsWithConnectionDirective(o, directiveName).forEach(f => {
       const openField = f as any
@@ -225,12 +226,12 @@ function getCacheControlDirectives(
     : storedCacheValue
 }
 
-function getObjectTypeDefinitions(
+function getValidTypesDefinitions(
   document: DocumentNode
-): ObjectTypeDefinitionNode[] {
+): (ObjectTypeDefinitionNode)[] {
   return document.definitions.filter(
-    d => d.kind === 'ObjectTypeDefinition'
-  ) as ObjectTypeDefinitionNode[]
+    d => d.kind === 'ObjectTypeDefinition' || d.kind === 'InterfaceTypeDefinition'
+  ) as (ObjectTypeDefinitionNode)[]
 }
 
 function getFieldsWithConnectionDirective(
