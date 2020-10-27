@@ -172,12 +172,12 @@ export function applyConnectionTransform({
   const mergedTypeDefs = concatenateTypeDefs(a)
   const document = gql(mergedTypeDefs)
   const objects = getValidTypesDefinitions(document)
-  objects.forEach(o =>
-    getFieldsWithConnectionDirective(o, directiveName).forEach(f => {
+  objects.forEach((o) =>
+    getFieldsWithConnectionDirective(o, directiveName).forEach((f) => {
       const openField = f as any
       // add relay connection args
       const args = openField.arguments || []
-      makeConnectionArgs().forEach(arg => args.push(arg))
+      makeConnectionArgs().forEach((arg) => args.push(arg))
 
       // Change type to Connection
       openField.type = makeConnectionType(f.type)
@@ -228,10 +228,11 @@ function getCacheControlDirectives(
 
 function getValidTypesDefinitions(
   document: DocumentNode
-): (ObjectTypeDefinitionNode)[] {
+): ObjectTypeDefinitionNode[] {
   return document.definitions.filter(
-    d => d.kind === 'ObjectTypeDefinition' || d.kind === 'InterfaceTypeDefinition'
-  ) as (ObjectTypeDefinitionNode)[]
+    (d) =>
+      d.kind === 'ObjectTypeDefinition' || d.kind === 'InterfaceTypeDefinition'
+  ) as ObjectTypeDefinitionNode[]
 }
 
 function getFieldsWithConnectionDirective(
@@ -241,7 +242,7 @@ function getFieldsWithConnectionDirective(
   if (!object.fields) {
     return []
   }
-  return object.fields.filter(f => {
+  return object.fields.filter((f) => {
     if (!f.directives) {
       return false
     }
