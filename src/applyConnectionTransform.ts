@@ -229,9 +229,12 @@ function getCacheControlDirectives(
 function getValidTypesDefinitions(
   document: DocumentNode
 ): ObjectTypeDefinitionNode[] {
-  return document.definitions.filter(
-    (d) =>
-      d.kind === 'ObjectTypeDefinition' || d.kind === 'InterfaceTypeDefinition'
+  return document.definitions.filter((d) =>
+    [
+      'ObjectTypeDefinition',
+      'InterfaceTypeDefinition',
+      'ObjectTypeExtension',
+    ].includes(d.kind)
   ) as ObjectTypeDefinitionNode[]
 }
 
