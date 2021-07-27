@@ -9,8 +9,13 @@
     "object-literal-sort-keys": false,
     "member-ordering": false,
     "no-empty": false,
+    "no-string-literal": false,
+    "prefer-const": false,
     "no-console": false,
     "curly": false,
     "no-var-requires": false
-  }
+  },
+  "exclude": [
+    "node_modules/**"
+  ]
 }
