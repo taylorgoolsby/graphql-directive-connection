@@ -27,6 +27,10 @@ test('main test', () => {
       # ignoredPost: Post @connection
       interfacePosts: Post @connection
     }
+    
+    extend type User {
+      extendedField: Post @connection
+    }
 
     type Post {
       postId: Int
@@ -57,6 +61,7 @@ type User implements Account {
   inlinePosts(myArg: String, after: String, first: Int, before: String, last: Int): PostConnection
   """ignoredPost: Post @connection"""
   interfacePosts(after: String, first: Int, before: String, last: Int): PostConnection
+  extendedField(after: String, first: Int, before: String, last: Int): PostConnection
 }
 
 type Post {

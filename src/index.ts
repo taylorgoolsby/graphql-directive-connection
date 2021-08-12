@@ -28,7 +28,14 @@ import {
   FieldDefinitionNode,
 } from 'graphql'
 
-export default function connectionDirective(directiveName: string) {
+export type ConnectionDirectiveOptions = {
+  useCacheControl?: boolean
+}
+
+export default function connectionDirective(
+  directiveName: string,
+  options?: ConnectionDirectiveOptions
+) {
   return {
     connectionDirectiveTypeDefs: `directive @${directiveName} on FIELD_DEFINITION`,
     connectionDirectiveTransform: (schema: GraphQLSchema) => {
@@ -37,20 +44,38 @@ export default function connectionDirective(directiveName: string) {
       const connectionTypes: { [name: string]: boolean } = {}
       const markedLocations: { [name: string]: string } = {}
 
+      // variables for cacheControl:
+      const connectionTypeGreatestMaxAge: {
+        [returnTypeName: string]: number
+      } = {}
+
       // Perform visitations:
-      const visitor = (
+      const fieldVisitor = (
         fieldConfig: GraphQLFieldConfig<any, any>,
         fieldName: string,
         typeName: string
       ) => {
         const directives = getDirectives(schema, fieldConfig)
 
-        if (directives.connection) {
+        if (directives[directiveName]) {
           const baseName = getBaseType(fieldConfig.type.toString())
           connectionTypes[baseName] = true
           markedLocations[`${typeName}.${fieldName}`] = baseName + 'Connection'
           // fieldConfig.type = makeConnectionType(fieldConfig.type) // does not work
           // return fieldConfig
+        }
+
+        if (directives['cacheControl']) {
+          const maxAge = directives['cacheControl'].maxAge
+          if (typeof maxAge === 'number') {
+            const baseName = getBaseType(fieldConfig.type.toString())
+            if (
+              !connectionTypeGreatestMaxAge.hasOwnProperty(baseName) ||
+              maxAge > connectionTypeGreatestMaxAge[baseName]
+            ) {
+              connectionTypeGreatestMaxAge[baseName] = maxAge
+            }
+          }
         }
 
         return undefined
@@ -60,8 +85,8 @@ export default function connectionDirective(directiveName: string) {
           foundTypes[type.name] = type
           return undefined
         },
-        [MapperKind.INTERFACE_FIELD]: visitor,
-        [MapperKind.OBJECT_FIELD]: visitor,
+        [MapperKind.INTERFACE_FIELD]: fieldVisitor,
+        [MapperKind.OBJECT_FIELD]: fieldVisitor,
       })
 
       // Construct new types:
@@ -81,21 +106,17 @@ export default function connectionDirective(directiveName: string) {
         // This applies the cacheControl to Edge type and edges, pageInfo fields
         // The cacheControl is not applied to a Connection and Node types
         // to comply with GraphQL List cacheControl behavior which has disabled cache by default
-        let cacheControl = ''
-        // const currentCacheValue = foundCacheControl[typeName]
-        // const currentMaxAge: string | undefined = Number(
-        //   currentCacheValue?.maxAge
-        // )
-        //   ? `maxAge: ${currentCacheValue.maxAge}`
-        //   : undefined
-        // cacheControl = currentMaxAge
-        //   ? `@cacheControl(${currentMaxAge || ''})`
-        //   : ''
+        const maxAge = connectionTypeGreatestMaxAge[name]
+        const needsCacheControl =
+          options?.useCacheControl && typeof maxAge === 'number'
+        const cacheControl = needsCacheControl
+          ? ` @cacheControl(maxAge: ${maxAge})`
+          : ''
 
         const newEdgeName = `${name}Edge`
         if (!foundTypes[newEdgeName]) {
           newTypeDefs.push(`
-            type ${newEdgeName} ${cacheControl} {
+            type ${newEdgeName}${cacheControl} {
               cursor: String!
               node: ${name}
             }
@@ -107,8 +128,8 @@ export default function connectionDirective(directiveName: string) {
           newTypeDefs.push(`
             type ${newConnectionName} {
               totalCount: Int!
-              edges: [${newEdgeName}] ${cacheControl}
-              pageInfo: PageInfo! ${cacheControl}
+              edges: [${newEdgeName}]${cacheControl}
+              pageInfo: PageInfo!${cacheControl}
             }
           `)
         }
