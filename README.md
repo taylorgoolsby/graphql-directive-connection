@@ -4,68 +4,8 @@ This package generates relay connections by marking fields with a `@connection` 
 
 ## Example
 
-```
-// usage
-const typeDefs = `
-  ${directiveDeclaration}
-  directive @sql on FIELD_DEFINITION
-
-  type User {
-    userId: Int
-    smallPosts: Post @connection
-    posts: [Post!]! @sql @connection
-    bigPosts: [Post!]! @connection @sql 
-  }
-
-  type Post {
-    postId: Int
-  }
-
-  type Query {
-    user: User
-  }
-`
-
-const newTypeDefs = applyConnectionTransform({
-  typeDefs,
-})
-```
-
-```
-# output
-type PageInfo {
-  hasNextPage: Boolean!
-  hasPreviousPage: Boolean!
-  startCursor: String
-  endCursor: String
-}
-type PostEdge {
-  cursor: String!
-  node: Post
-}
-type PostConnection {
-  edges: [PostEdge]
-  pageInfo: PageInfo!
-}
-
-directive @connection on FIELD_DEFINITION
-directive @sql on FIELD_DEFINITION
-
-type User {
-  userId: Int
-  smallPosts: PostConnection
-  posts: PostConnection @sql
-  bigPosts: PostConnection @sql 
-}
-
-type Post {
-  postId: Int
-}
-
-type Query {
-  user: User
-}
-```
+Take a look at [./example.js](example.js).
+You can run it using `npx babel-node example.js`.
 
 It will:
 * Create the needed Connection and Edge object types.
