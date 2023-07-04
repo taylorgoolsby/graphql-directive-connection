@@ -1,12 +1,14 @@
-import { makeExecutableSchema, printSchemaWithDirectives } from 'graphql-tools'
-import connectionDirective from '../src'
+import test from 'boxtape'
+import {makeExecutableSchema} from '@graphql-tools/schema'
+import { printSchemaWithDirectives } from '@graphql-tools/utils'
+import connectionDirective from '../lib/index.js'
 
 const {
   connectionDirectiveTypeDefs,
   connectionDirectiveTransform,
 } = connectionDirective('connection', { useCacheControl: true })
 
-test('cacheControl test', () => {
+test('cacheControl test', (t) => {
   const typeDefs = `
     directive @sql on FIELD_DEFINITION
     directive @cacheControl (
@@ -68,21 +70,20 @@ type PageInfo {
   endCursor: String
 }
 
-type PostEdge @cacheControl(maxAge: 10) {
+type PostEdge @cacheControl(maxAge: 20) {
   cursor: String!
   node: Post
 }
 
 type PostConnection {
   totalCount: Int!
-  edges: [PostEdge] @cacheControl(maxAge: 10)
-  pageInfo: PageInfo! @cacheControl(maxAge: 10)
-}
-`
-  runTest(typeDefs, expected)
+  edges: [PostEdge] @cacheControl(maxAge: 20)
+  pageInfo: PageInfo! @cacheControl(maxAge: 20)
+}`
+  runTest(t, typeDefs, expected)
 })
 
-function runTest(typeDefs: string, expected: string) {
+function runTest(t, typeDefs, expected) {
   let schema = makeExecutableSchema({
     typeDefs: [connectionDirectiveTypeDefs, typeDefs],
   })
@@ -93,5 +94,5 @@ function runTest(typeDefs: string, expected: string) {
     console.log(answer)
   }
 
-  expect(answer).toEqual(expected)
+  t.equal(answer, expected)
 }

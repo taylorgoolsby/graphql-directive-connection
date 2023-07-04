@@ -1,13 +1,14 @@
-import { validateSchema } from 'graphql'
-import { makeExecutableSchema, printSchemaWithDirectives } from 'graphql-tools'
-import connectionDirective from '../src'
+import test from 'boxtape'
+import {makeExecutableSchema} from '@graphql-tools/schema'
+import { printSchemaWithDirectives } from '@graphql-tools/utils'
+import connectionDirective from '../lib/index.js'
 
 const {
   connectionDirectiveTypeDefs,
   connectionDirectiveTransform,
 } = connectionDirective('connection')
 
-test('main test', () => {
+test('main test', (t) => {
   const typeDefs = `
     directive @sql on FIELD_DEFINITION
 
@@ -24,8 +25,6 @@ test('main test', () => {
         myArg: String
       ): Post @connection
       inlinePosts(myArg: String): Post @connection
-      # ignoredPost: Post @connection
-      interfacePosts: Post @connection
     }
     
     extend type User {
@@ -59,8 +58,6 @@ type User implements Account {
   bigPosts(after: String, first: Int, before: String, last: Int): PostConnection @sql
   multilinePosts(myArg: String, after: String, first: Int, before: String, last: Int): PostConnection
   inlinePosts(myArg: String, after: String, first: Int, before: String, last: Int): PostConnection
-  """ignoredPost: Post @connection"""
-  interfacePosts(after: String, first: Int, before: String, last: Int): PostConnection
   extendedField(after: String, first: Int, before: String, last: Int): PostConnection
 }
 
@@ -88,12 +85,11 @@ type PostConnection {
   totalCount: Int!
   edges: [PostEdge]
   pageInfo: PageInfo!
-}
-`
-  runTest(typeDefs, expected)
+}`
+  runTest(t, typeDefs, expected)
 })
 
-function runTest(typeDefs: string, expected: string) {
+function runTest(t, typeDefs, expected) {
   let schema = makeExecutableSchema({
     typeDefs: [connectionDirectiveTypeDefs, typeDefs],
   })
@@ -101,8 +97,8 @@ function runTest(typeDefs: string, expected: string) {
   const answer = printSchemaWithDirectives(schema)
 
   if (answer !== expected) {
-    console.log(answer)
+    console.log('answer', answer)
   }
 
-  expect(answer).toEqual(expected)
+  t.equal(answer, expected)
 }

@@ -2,31 +2,53 @@ import {
   mapSchema,
   getDirectives,
   MapperKind,
-  mergeSchemas,
-  getFieldsWithDirectives,
-  getDocumentNodeFromSchema,
-  extractType,
-  cloneType,
-  renameType,
-  getUserTypesFromSchema,
+  printSchemaWithDirectives,
+} from '@graphql-tools/utils'
+// import {stitchSchemas} from '@graphql-tools/stitch'
+import {
   wrapSchema,
-  RenameObjectFields,
   TransformObjectFields,
   TransformInterfaceFields,
-} from 'graphql-tools'
+} from '@graphql-tools/wrap'
 import {
   GraphQLSchema,
   GraphQLNamedType,
-  GraphQLField,
   GraphQLOutputType,
   GraphQLObjectType,
-  TypeNode,
-  print,
   GraphQLFieldConfig,
   GraphQLFieldConfigArgumentMap,
   GraphQLScalarType,
-  FieldDefinitionNode,
+  GraphQLSchemaConfig,
+  GraphQLObjectTypeConfig,
+  GraphQLInterfaceTypeConfig,
+  GraphQLUnionTypeConfig,
+  GraphQLScalarTypeConfig,
+  GraphQLEnumTypeConfig,
+  GraphQLEnumValue,
+  GraphQLEnumValueConfig,
+  GraphQLInputObjectTypeConfig,
+  GraphQLField,
+  GraphQLInputField,
+  GraphQLInputFieldConfig,
 } from 'graphql'
+import { makeExecutableSchema } from '@graphql-tools/schema'
+
+type DirectableGraphQLObject =
+  | GraphQLSchema
+  | GraphQLSchemaConfig
+  | GraphQLNamedType
+  | GraphQLObjectTypeConfig<any, any>
+  | GraphQLInterfaceTypeConfig<any, any>
+  | GraphQLUnionTypeConfig<any, any>
+  | GraphQLScalarTypeConfig<any, any>
+  | GraphQLEnumTypeConfig
+  | GraphQLEnumValue
+  | GraphQLEnumValueConfig
+  | GraphQLInputObjectTypeConfig
+  | GraphQLField<any, any>
+  | GraphQLInputField
+  | GraphQLFieldConfig<any, any>
+  | GraphQLInputFieldConfig
 
 export type ConnectionDirectiveOptions = {
   useCacheControl?: boolean
@@ -49,26 +71,19 @@ export default function connectionDirective(
         [returnTypeName: string]: number
       } = {}
 
-      // Perform visitations:
-      const fieldVisitor = (
-        fieldConfig: GraphQLFieldConfig<any, any>,
-        fieldName: string,
+      function handleCacheControlDirectiveVisitation(
+        node: DirectableGraphQLObject,
         typeName: string
-      ) => {
-        const directives = getDirectives(schema, fieldConfig)
+      ) {
+        const directives = getDirectives(schema, node)
+        const cacheControlDirective = directives?.find(
+          (d) => d.name === 'cacheControl'
+        )
+        if (cacheControlDirective) {
+          const maxAge = cacheControlDirective.args?.maxAge
 
-        if (directives[directiveName]) {
-          const baseName = getBaseType(fieldConfig.type.toString())
-          connectionTypes[baseName] = true
-          markedLocations[`${typeName}.${fieldName}`] = baseName + 'Connection'
-          // fieldConfig.type = makeConnectionType(fieldConfig.type) // does not work
-          // return fieldConfig
-        }
-
-        if (directives['cacheControl']) {
-          const maxAge = directives['cacheControl'].maxAge
           if (typeof maxAge === 'number') {
-            const baseName = getBaseType(fieldConfig.type.toString())
+            const baseName = getBaseType(typeName)
             if (
               !connectionTypeGreatestMaxAge.hasOwnProperty(baseName) ||
               maxAge > connectionTypeGreatestMaxAge[baseName]
@@ -77,11 +92,34 @@ export default function connectionDirective(
             }
           }
         }
+      }
+
+      // Perform visitations:
+      const fieldVisitor = (
+        fieldConfig: GraphQLFieldConfig<any, any>,
+        fieldName: string,
+        typeName: string
+      ) => {
+        const directives = getDirectives(schema, fieldConfig)
+
+        const directive = directives?.find((d) => d.name === directiveName)
+
+        if (directive) {
+          const baseName = getBaseType(fieldConfig.type.toString())
+          connectionTypes[baseName] = true
+          markedLocations[`${typeName}.${fieldName}`] = baseName + 'Connection'
+        }
+
+        handleCacheControlDirectiveVisitation(
+          fieldConfig,
+          fieldConfig.type.toString()
+        )
 
         return undefined
       }
       mapSchema(schema, {
         [MapperKind.TYPE]: (type) => {
+          handleCacheControlDirectiveVisitation(type, type.name)
           foundTypes[type.name] = type
           return undefined
         },
@@ -135,9 +173,12 @@ export default function connectionDirective(
         }
       }
 
-      schema = mergeSchemas({
-        schemas: [schema],
-        typeDefs: newTypeDefs,
+      // Add new types to the existing schema
+      const originalTypeDefs = printSchemaWithDirectives(schema, {
+        commentDescriptions: true,
+      })
+      schema = makeExecutableSchema({
+        typeDefs: [originalTypeDefs, newTypeDefs.join('\n')],
       })
 
       // Rename field types.
