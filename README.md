@@ -4,8 +4,52 @@ This package generates relay connections by marking fields with a `@connection` 
 
 ## Example
 
-Take a look at [./example.js](example.js).
-You can run it using `npx babel-node example.js`.
+```js
+import sqlDirective from 'graphql-to-sql'
+import privateDirective from 'graphql-directive-private'
+import connectionDirective from 'graphql-directive-connection'
+import { makeExecutableSchema } from '@graphql-tools/schema'
+
+const { generateSql } = sqlDirective('sql')
+const { privateDirectiveTransform } = privateDirective('private')
+const { connectionDirectiveTransform } = connectionDirective('connection')
+
+const typeDefs = `
+  directive @connection on FIELD_DEFINITION
+  directive @private on OBJECT | FIELD_DEFINITION
+
+  type User {
+    userId: Int @sql(type: "BINARY(16)", primary: true)
+    password: String @sql(type: "VARCHAR(255)", primary: true) @private
+    
+    # Tag the field with @connection. Its return type will be replaced with PostConnection.
+    posts: [Post!]! @connection
+  }
+
+  type Post {
+    postId: Int @sql(type: "BINARY(16)", primary: true)
+  }
+
+  type Query {
+    user: User
+  }
+`
+
+export const sql = generateSql({typeDefs}, {
+  databaseName: 'public',
+  tablePrefix: 'test_',
+  dbType: 'mysql',
+})
+
+let schema = makeExecutableSchema({
+  typeDefs
+})
+
+schema = privateDirectiveTransform(schema)
+schema = connectionDirectiveTransform(schema)
+
+export default schema
+```
 
 It will:
 * Create the needed Connection and Edge object types.
@@ -17,7 +61,7 @@ It will:
 
 ## cacheControl
 
-By default the `cacheControl` directives are not generated on Edge object types and inside connection fields which results in cache arguments being completely ignored.
+By default, the `cacheControl` directives are not generated on Edge object types and inside connection fields which results in cache arguments being completely ignored.
 Enabling `defaultMaxAge` for all types/fields across your GraphQL implementation partially solve the problem, however it might not be the best options.
 It is possible to enable `cacheControl` directive support by passing a `useCacheControl: true` flag to `applyConnectionTransform` function.
 The package will then use the largest `maxAge` across the connection fields with custom types and apply it to `edges` and `pageInfo` fields along with the `Edge` type.
