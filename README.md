@@ -59,6 +59,28 @@ It will:
 * Throw errors if the generated Connection and Edge types have a name conflict with types already defined in your SDL.
 * Leave everything else in your SDL untouched.
 
+These types will be added to your schema:
+
+```graphql
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+type PostEdge {
+  cursor: String!
+  node: Post
+}
+
+type PostConnection {
+  totalCount: Int!
+  edges: [PostEdge]
+  pageInfo: PageInfo!
+}
+```
+
 ## cacheControl
 
 By default, the `cacheControl` directives are not generated on Edge object types and inside connection fields which results in cache arguments being completely ignored.
