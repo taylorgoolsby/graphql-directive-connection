@@ -31,7 +31,7 @@ import {
   GraphQLInputField,
   GraphQLInputFieldConfig,
 } from 'graphql'
-import { makeExecutableSchema } from '@graphql-tools/schema'
+import { makeExecutableSchema, mergeSchemas } from '@graphql-tools/schema'
 
 type DirectableGraphQLObject =
   | GraphQLSchema
@@ -174,11 +174,9 @@ export default function connectionDirective(
       }
 
       // Add new types to the existing schema
-      const originalTypeDefs = printSchemaWithDirectives(schema, {
-        commentDescriptions: true,
-      })
-      schema = makeExecutableSchema({
-        typeDefs: [originalTypeDefs, newTypeDefs.join('\n')],
+      schema = mergeSchemas({
+        schemas: [schema],
+        typeDefs: newTypeDefs,
       })
 
       // Rename field types.
